@@ -410,8 +410,9 @@ function renderComentarios(d) {
 
 /* ── EXPORT CSV ──
    Sem col A (Submission Date) e sem col R (Submission ID)
-   Colunas B, C, D fixas
-   Colunas E-J: apenas as preenchidas, em uma célula
+   Col B = Nome | DDD separado | Telefone sem DDD | Col D = Marca
+   Colunas E-J: apenas as que tiverem ao menos 1 valor preenchido no conjunto,
+                cada loja em coluna própria (sem a coluna se nenhum registro tiver aquela loja)
    Colunas K-Q: perguntas numeradas 1-7 com pergunta + resposta, em uma célula
 */
 function exportCSV(tipo) {
@@ -419,22 +420,41 @@ function exportCSV(tipo) {
   const dados = todos.filter(r => norm(r.P) === tipo);
   if (!dados.length) { alert('Nenhum registro para "' + tipoLabel + '".'); return; }
 
-  const linhas = [];
-  for (const r of dados) {
-    // Colunas E-J: só inclui as preenchidas
-    const lojas = [r.E, r.F, r.G, r.H, r.I, r.J].filter(v => v && v.trim() !== '').join(' | ');
+  // Descobre quais lojas (E-J) têm ao menos 1 valor preenchido neste conjunto
+  const colsLoja = [
+    { key: 'E', label: 'Orvel Seminovos' },
+    { key: 'F', label: 'Orvel Fiat' },
+    { key: 'G', label: 'Orvel Jeep e Ram' },
+    { key: 'H', label: 'Orvel Omoda e Jaecoo' },
+    { key: 'I', label: 'Orvel Renault' },
+    { key: 'J', label: 'Orvel Volkswagen' },
+  ].filter(col => dados.some(r => r[col.key] && r[col.key].trim() !== ''));
 
-    // Perguntas K-Q numeradas
-    const perguntas =
-      '1: Como você avalia o atendimento recebido? = ' + r.K +
+  // Separar DDD do telefone
+  function sepTel(tel) {
+    const limpo = (tel || '').replace(/\D/g, '');
+    if (limpo.length >= 10) return { ddd: limpo.substring(0, 2), num: limpo.substring(2) };
+    return { ddd: '', num: tel || '' };
+  }
+
+  // Perguntas K-Q numeradas
+  function montaPerguntas(r) {
+    return '1: Como você avalia o atendimento recebido? = ' + r.K +
       ' | 2: Quanto tempo demorou para você ser atendido? = ' + r.L +
       ' | 3: Na sua percepção, o tempo de espera foi satisfatório? = ' + r.M +
       ' | 4: As informações sobre preço, financiamento e condições foram claras? = ' + r.N +
       ' | 5: Qual foi o principal motivo para não concluir a compra? = ' + r.O +
       ' | 6: Gostaria de receber uma nova proposta? = ' + r.P +
       ' | 7: Gostaria de deixar algum comentário, dúvida ou reclamação? = ' + r.Q;
+  }
 
-    linhas.push([r.B, r.C, r.D, lojas, perguntas]);
+  const linhas = [];
+  for (const r of dados) {
+    const { ddd, num } = sepTel(r.C);
+    const row = [r.B, ddd, num, r.D];
+    for (const col of colsLoja) row.push(r[col.key] || '');
+    row.push(montaPerguntas(r));
+    linhas.push(row);
   }
 
   const csv = linhas.map(row =>
